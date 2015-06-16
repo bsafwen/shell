@@ -13,7 +13,6 @@ extern char **environ ;
 int main( int argc, char *argv[])
 {
     char **envptr = environ  ;
-    int er ;
     pid_t pid ;
     char variable[1][100] ;
     char cmd[64];
@@ -46,30 +45,39 @@ int main( int argc, char *argv[])
                 printf("%s\n",*envptr);
                 ++envptr ;
             }
+            envptr = environ ;
             status = 0 ;
         }
         else {
             if ( cmd[strlen(cmd)-1]=='\n' )
-                cmd[strlen(cmd)-1]='\0' ;
-            if ( (pid=fork()) < 0 )
+            cmd[strlen(cmd)-1]='\0' ;
+            strcpy(bckp_cmd,cmd);
+            word = strtok(bckp_cmd, DELIMITERS);
+            if ( strcmp(word, "cd") == 0 )
             {
-                perror("fork ");
-                exit(EXIT_FAILURE);
+                word = strtok(NULL, DELIMITERS);
+                if (   chdir(word) == -1  )
+                {
+                    perror("chdir ");
+                    /* exit(EXIT_FAILURE); */
+                    /* return EXIT_FAILURE ; */
+                    continue ;
+                }
             }
-            else if ( pid == 0 )
-            {
-                 if ( (er = system(cmd)) != 0 )
-                 {
-                     if (er == -1 )
-                         perror(cmd);
-                     status = 1 ;
-                 }
-                 else 
-                     status = 0 ;
-                 exit(EXIT_SUCCESS);
+            else {
+                if ( (pid=fork()) < 0 )
+                {
+                    perror("fork ");
+                    exit(EXIT_FAILURE);
+                }
+                else if ( pid == 0 )
+                {
+                    system(cmd);
+                    exit(EXIT_SUCCESS);
+                }
+                else
+                    wait(NULL);
             }
-            else
-                wait(NULL);
         }
         /* else if ( strcmp(cmd,"status\n") == 0 ) */
         /* { */
