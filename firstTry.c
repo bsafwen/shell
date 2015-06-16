@@ -18,7 +18,7 @@ int main( int argc, char *argv[])
     char cmd[64];
     char bckp_cmd[64];
     char Time[10];
-    char *word ;
+    char *word, *ptr ;
     time_t rawTime ;
     struct tm *timeInfo ;
     int status = 0 ;
@@ -36,7 +36,6 @@ int main( int argc, char *argv[])
         {
             printf("%d\n",status);
             status = 0 ;
-            continue ;
         }
         else if ( strcmp(cmd,"show\n") == 0 )
         {
@@ -50,7 +49,7 @@ int main( int argc, char *argv[])
         }
         else {
             if ( cmd[strlen(cmd)-1]=='\n' )
-            cmd[strlen(cmd)-1]='\0' ;
+                cmd[strlen(cmd)-1]='\0' ;
             strcpy(bckp_cmd,cmd);
             word = strtok(bckp_cmd, DELIMITERS);
             if ( strcmp(word, "cd") == 0 )
@@ -59,10 +58,24 @@ int main( int argc, char *argv[])
                 if (   chdir(word) == -1  )
                 {
                     perror("chdir ");
-                    /* exit(EXIT_FAILURE); */
-                    /* return EXIT_FAILURE ; */
+                    status = 1 ;
                     continue ;
                 }
+            }
+            else if ( strcmp(word, "set") == 0 )
+            {
+                word = strtok(NULL, DELIMITERS);
+                ptr = strtok(NULL,DELIMITERS);
+                setenv(word, ptr, 1);
+                status = 1 ;
+                continue ;
+            }
+            else if ( strcmp(word, "unset") == 0 )
+            {
+                word = strtok(NULL, DELIMITERS);
+                unsetenv(word);
+                status = 0 ;
+                continue ;
             }
             else {
                 if ( (pid=fork()) < 0 )
