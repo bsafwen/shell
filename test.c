@@ -23,6 +23,7 @@ typedef struct process
     char	    completed ;
     char	    stopped ;
     int		    status ;
+    int		    in, out, err ;
 } process ;
 
 typedef struct job
@@ -33,7 +34,6 @@ typedef struct job
     pid_t	    pgid ;
     char	    stopped ;
     char	    foreground ;
-    /* int		    sstdin, sstdout, sstderr ; */
 } job ;
 
 void update_jobs(void);
@@ -63,6 +63,7 @@ void put_job_in_foreground(job *j, int cont);
 void put_job_in_background(job *j, int cont);
 void wait_for_job(job *j);
 void report_jobs_status(void);
+void redirect(char *command_line);
 
 
 job		   *jobs = NULL ;
@@ -102,6 +103,8 @@ int main(void)
 
 		else if ( strncmp(command_line, "exit",4) == 0 )
 		    break ;
+		else if ( strncmp(command_line, "redirect",8) == 0 )
+		    redirect(command_line);
 		else if ( strncmp(command_line, "run",3) == 0 )
 		{
 		    load_job(&jobs, command_line, 0 );
