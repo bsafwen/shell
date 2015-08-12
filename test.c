@@ -1,4 +1,3 @@
-// problem with find_process
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -63,7 +62,6 @@ void put_job_in_foreground(job *j, int cont);
 void put_job_in_background(job *j, int cont);
 void wait_for_job(job *j);
 void report_jobs_status(void);
-void redirect(char *command_line);
 
 
 job		   *jobs = NULL ;
@@ -103,8 +101,6 @@ int main(void)
 
 		else if ( strncmp(command_line, "exit",4) == 0 )
 		    break ;
-		else if ( strncmp(command_line, "redirect",8) == 0 )
-		    redirect(command_line);
 		else if ( strncmp(command_line, "run",3) == 0 )
 		{
 		    load_job(&jobs, command_line, 0 );
@@ -628,44 +624,3 @@ void delete_list(process *p)
 	free(iter);
     }
 }
-
-/* void report_jobs_status(void) */
-/* { */
-/*     int j ; */
-/*     job *temp = NULL ; */
-/*     int status ; */
-/*     pid_t pid = waitid(P_ALL, 0, NULL, WEXITED ); */
-/*     process *p = find_process(pid); */
-/*     if ( p == NULL ) */
-/*     { */
-/* 	printf("reporting : nothing to report!\n"); */
-/*     } */
-/*     else */
-/*     { */
-/* 	last_command_status = WEXITSTATUS(status); */
-/* 	if ( WIFSIGNALED(status) ) */
-/* 	{ */
-/* 	    p->completed = 1 ; */
-/* 	} */
-/* 	else if ( WIFEXITED(status) ) */
-/* 	{ */
-/* 	    p->status = WTERMSIG(status); */
-/* 	    p->completed = 1 ; */
-/* 	} */
-/* 	else if ( WIFSTOPPED(status) ) */
-/* 	{ */
-/* 	    p->stopped = 1 ; */
-/* 	    p->completed = 0 ; */
-/* 	} */
-
-/*     } */
-/*     for ( j = 0 ; j < MAX_JOBS ; ++j ) */
-/*     { */
-/* 	if ( bg_jobs[j] != NULL ) */
-/* 	{ */
-/* 	    if ( bg_jobs[j]->foreground == 0 && job_is_completed(bg_jobs[j]) ) */
-/* 		    printf("%s : done\n",bg_jobs[j]->command); */
-/* 		bg_jobs[j] = NULL ; */
-/* 	} */
-/*     } */
-/* } */
