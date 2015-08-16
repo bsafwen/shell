@@ -23,3 +23,4 @@ extern char command[256];
 [-\.a-zA-Z0-9_/{}@\;]+	{strcat(command,yytext);yylloc.last_column += strlen(yytext) ; yylval.match = strdup(yytext );return IDENTIFIER ; }
 .	    {;}
 %%
+
