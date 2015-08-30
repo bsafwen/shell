@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
 #define MAX_JOBS 50
 #define DELIMITERS ")(,\n"
 char command[256];
@@ -55,4 +56,3 @@ void wait_for_job(job *j);
 void report_jobs_status(void);
 void add_program(process **ptr, char *str, char *a, char *b, char *c) ;
 void print_process(process **ptr);
-

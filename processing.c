@@ -32,21 +32,7 @@ void initialize_shell(void)
 
 void launch_process(process *process_ptr, pid_t *pgid, int foreground)
 {
-    if ( process_ptr->in != NULL )
-    {
-	close(STDIN_FILENO);
-	fopen(process_ptr->in, "r");
-    }
-    if ( process_ptr->out != NULL )
-    {
-	close(STDOUT_FILENO);
-	fopen(process_ptr->out, "a");
-    }
-    if ( process_ptr->err != NULL )
-    {
-	close(STDERR_FILENO);
-	fopen(process_ptr->err, "a");
-    }	
+    	
     pid_t pid ;
     pid = getpid() ;
     process_ptr->pid = pid ;
@@ -76,6 +62,21 @@ void launch_job(job *job_ptr, int foreground)
 	    pid = fork() ;
 	    if ( pid == 0 )
 	    {
+		if ( p->in != NULL )
+		{
+		    close(STDIN_FILENO);
+		    fopen(p->in, "r");
+		}
+		if ( p->out != NULL )
+		{
+		    close(STDOUT_FILENO);
+		    fopen(p->out, "a");
+		}
+		if ( p->err != NULL )
+		{
+		    close(STDERR_FILENO);
+		    fopen(p->err, "a");
+		}
 		signal(SIGINT, SIG_DFL);
 		signal(SIGQUIT, SIG_DFL);
 		signal(SIGTSTP, SIG_DFL);
@@ -119,14 +120,12 @@ void load_process(process **p, char *str, int foreground)
     if ( foreground == 0 )
 	word = strtok(NULL, DELIMITERS);
     temp->argv = malloc(sizeof(char *)) ;
-    temp->argv[0] = malloc((1+strlen(word))*sizeof(char));
-    strcpy(temp->argv[0], word);
+    temp->argv[0] = strdup(word);
     while ( (word = strtok(NULL, DELIMITERS)) != NULL )
     {
 	if ((temp->argv = realloc(temp->argv, sizeof(char *) * (i+1))) == NULL )
 	    perror("realloc ");
-	temp->argv[i] = malloc(strlen(word)*sizeof(char)+1);
-	strcpy(temp->argv[i], word);
+	temp->argv[i] = strdup(word);
 	++i ;
     }
     if ( (temp->argv = realloc(temp->argv, sizeof(char *) * (i+1))) == NULL )
@@ -497,17 +496,24 @@ void add_program(process **ptr, char *str, char *i, char *o, char *e)
 {
     (*ptr)->completed = 0 ;
     (*ptr)->stopped = 0 ;
-    (*ptr)->argv = malloc(sizeof(char *));
+    char c ;
+    int numberOfArgs = 1 ;
+    int k = 0 ;
+    while ( (c = str[k]) != '\0') 
+    {
+	if ( isspace(c) )
+	    ++numberOfArgs ;
+	++k ;
+    }
+    (*ptr)->argv = malloc(sizeof(char *)*(numberOfArgs+1));
     char *word = strtok(str, " ");
     (*ptr)->argv[0] = strdup(word);
     int j = 1 ;
     while ( (word = strtok(NULL, " ")) != NULL )
     {
-	(*ptr)->argv = realloc((*ptr)->argv,sizeof(char *)*(j+1));
 	(*ptr)->argv[j] = strdup(word);
 	++j ;
     }
-    (*ptr)->argv = realloc((*ptr)->argv,sizeof(char *)*(j+1));
     (*ptr)->argv[j] = NULL ;
     if ( i != NULL )
 	(*ptr)->in = strdup(i);

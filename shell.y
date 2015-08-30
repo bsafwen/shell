@@ -116,9 +116,10 @@ redirect    :		    REDIRECT '(' IDENTIFIER ',' IDENTIFIER ',' IDENTIFIER ',' pro
 			    $$ = new ;
 			    }
 	    ;
-program	    :		    program IDENTIFIER { $$ = realloc($$, sizeof(char)*(1+strlen($$)+strlen($2)));
-						 strcat($$," ");
-						 strcat($$,$2);   }
+program	    :		    program IDENTIFIER { char *str = $$ ;str=realloc(str, sizeof(char)*(2+strlen(str)+strlen($2)));
+						 strcat(str," ");
+						  strcat(str,$2);   
+						 $$ = str ; }
 	    |		    IDENTIFIER { $$ = strdup($1);}
 	    ;
 pipe	    :		    PIPE '(' program ',' program ')' { process *first = malloc(sizeof(process));
@@ -204,4 +205,3 @@ int yyerror(char *str)
     printf("\n> ");
     last_command_status = 1 ;
 }
-
