@@ -39,8 +39,8 @@ void launch_process(process *process_ptr, pid_t *pgid, int foreground)
     if ( *pgid == 0 )
     {
 	*pgid = pid ;
-	if ( foreground )
-	    tcsetpgrp(STDIN_FILENO, *pgid);
+	/* if ( foreground ) */
+	    /* tcsetpgrp(STDIN_FILENO, *pgid); */
     }
     setpgid(pid, *pgid);
     execvp(process_ptr->argv[0], process_ptr->argv);
@@ -104,6 +104,8 @@ void launch_job(job *job_ptr, int foreground)
 		}
 		else if ( l == 0 )
 		{
+		    if ( foreground == 1 )
+			tcsetpgrp(getpid(), STDIN_FILENO);
 		    dup2(pipes[0][1], STDOUT_FILENO);
 		    for ( x = 0 ; x < numberOfPipes ; ++x )
 		    {
@@ -138,15 +140,12 @@ void launch_job(job *job_ptr, int foreground)
 		signal(SIGCHLD, SIG_DFL);
 		launch_process(p, &iter->pgid, foreground);
 	    }
-	    else if ( pid < 0 )
-	    {
-		perror("fork ");
-	    }
 	    else
 	    {
+		if ( l == 0 )
+		    tcsetpgrp(pid,STDOUT_FILENO);
 		if ( iter->pgid == 0 )
 		    iter->pgid = pid ;
-		tcsetpgrp(pid,STDOUT_FILENO);
 		p->pid = pid ;
 		setpgid(pid, iter->pgid);
 	    }
@@ -540,6 +539,7 @@ void delete_list(process *p)
     while ( p != NULL )
     {
 	iter = p ;
+	i = 0 ;
 	while ( p->argv[i] != NULL )
 	{
 	    free(p->argv[i]);
