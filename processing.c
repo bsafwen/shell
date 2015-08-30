@@ -37,10 +37,12 @@ void launch_process(process *process_ptr, pid_t *pgid, int foreground)
     pid = getpid() ;
     process_ptr->pid = pid ;
     if ( *pgid == 0 )
+    {
 	*pgid = pid ;
+	if ( foreground )
+	    tcsetpgrp(STDIN_FILENO, *pgid);
+    }
     setpgid(pid, *pgid);
-    if ( foreground )
-	tcsetpgrp(STDIN_FILENO, *pgid);
     execvp(process_ptr->argv[0], process_ptr->argv);
 
     exit(1);
@@ -54,28 +56,79 @@ void launch_job(job *job_ptr, int foreground)
 	job *iter = job_ptr ;
 	while ( iter->next_job != NULL )
 	    iter = iter->next_job ;
-	process *p ;
+	process *p = iter->first_process ;
 	pid_t pid ;
-	for ( p = iter->first_process ; p != NULL ; p = p->next_process )
+	int numberOfPipes = 0 ;
+	while ( p->next_process != NULL )
 	{
-	    /* print_process(&p); */
+	    ++numberOfPipes ;
+	    p = p->next_process ;
+	}
+	int pipes[numberOfPipes][2];
+	int l,x ;
+	for ( l = 0 ; l < numberOfPipes ; ++l )
+	{
+	    pipe(pipes[l]);
+	}
+	for ( l = 0, p = iter->first_process ; p != NULL ; p = p->next_process, ++l )
+	{
 	    pid = fork() ;
 	    if ( pid == 0 )
 	    {
 		if ( p->in != NULL )
 		{
-		    close(STDIN_FILENO);
-		    fopen(p->in, "r");
+		    dup2(open(p->in, O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR), STDIN_FILENO);
 		}
 		if ( p->out != NULL )
 		{
-		    close(STDOUT_FILENO);
-		    fopen(p->out, "a");
+		    dup2(open(p->out, O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR), STDOUT_FILENO);
 		}
 		if ( p->err != NULL )
 		{
-		    close(STDERR_FILENO);
-		    fopen(p->err, "a");
+		    dup2(open(p->err, O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR), STDERR_FILENO);
+		}
+		if ( l != 0 && p->next_process != NULL )
+		{
+		    dup2(pipes[l-1][0], STDIN_FILENO);
+		    dup2(pipes[l][1], STDOUT_FILENO);
+		    for ( x = 0 ; x < numberOfPipes ; ++x )
+		    {
+			int k = 0 ;
+			for ( k = 0 ; k < 2 ; ++k )
+			{
+			    if ( (x==l-1 && k == 0) | (x==l && k==1))
+				continue ;
+			    close(pipes[x][k]);
+			}
+		    }
+		}
+		else if ( l == 0 )
+		{
+		    dup2(pipes[0][1], STDOUT_FILENO);
+		    for ( x = 0 ; x < numberOfPipes ; ++x )
+		    {
+			int k = 0 ;
+			for ( k = 0 ; k < 2 ; ++k )
+			{
+			    if ( x==0 && k == 1)
+				continue ;
+			    close(pipes[x][k]);
+			}
+		    }    
+		}
+		else if ( p->next_process == NULL )
+		{
+		    dup2(pipes[numberOfPipes-1][0], STDIN_FILENO);
+		    for ( x = 0 ; x < numberOfPipes ; ++x )
+		    {
+			int k = 0 ;
+			for ( k = 0 ; k < 2 ; ++k )
+			{
+			    if ( x==numberOfPipes-1 && k == 0)
+				continue ;
+			    close(pipes[x][k]);
+			}
+		    }    
 		}
 		signal(SIGINT, SIG_DFL);
 		signal(SIGQUIT, SIG_DFL);
@@ -97,6 +150,12 @@ void launch_job(job *job_ptr, int foreground)
 		p->pid = pid ;
 		setpgid(pid, iter->pgid);
 	    }
+	}
+	for ( l = 0 ; l < numberOfPipes ; ++l )
+	{
+	    int k = 0 ;
+	    for ( k = 0 ; k < 2 ; ++k )
+		close(pipes[l][k]);
 	}
 	if ( foreground == 1 )
 	    put_job_in_foreground(iter, 0);
