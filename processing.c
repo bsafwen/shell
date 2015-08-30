@@ -32,36 +32,32 @@ void initialize_shell(void)
 
 void launch_process(process *process_ptr, pid_t *pgid, int foreground)
 {
-    if ( shell_is_interactive )
+    if ( process_ptr->in != NULL )
     {
-	if ( process_ptr->in != NULL )
-	{
-	    close(STDIN_FILENO);
-	    fopen(process_ptr->in, "r");
-	}
-	if ( process_ptr->out != NULL )
-	{
-	    close(STDOUT_FILENO);
-	    fopen(process_ptr->out, "a");
-	}
-	if ( process_ptr->err != NULL )
-	{
-	    close(STDERR_FILENO);
-	    fopen(process_ptr->err, "a");
-	}
-	
-	pid_t pid ;
-	pid = getpid() ;
-	process_ptr->pid = pid ;
-	if ( *pgid == 0 )
-	    *pgid = pid ;
-	setpgid(pid, *pgid);
-	if ( foreground )
-	    tcsetpgrp(STDIN_FILENO, *pgid);
-	execvp(process_ptr->argv[0], process_ptr->argv);
-
-	exit(1);
+	close(STDIN_FILENO);
+	fopen(process_ptr->in, "r");
     }
+    if ( process_ptr->out != NULL )
+    {
+	close(STDOUT_FILENO);
+	fopen(process_ptr->out, "a");
+    }
+    if ( process_ptr->err != NULL )
+    {
+	close(STDERR_FILENO);
+	fopen(process_ptr->err, "a");
+    }	
+    pid_t pid ;
+    pid = getpid() ;
+    process_ptr->pid = pid ;
+    if ( *pgid == 0 )
+	*pgid = pid ;
+    setpgid(pid, *pgid);
+    if ( foreground )
+	tcsetpgrp(STDIN_FILENO, *pgid);
+    execvp(process_ptr->argv[0], process_ptr->argv);
+
+    exit(1);
 }
 
 void launch_job(job *job_ptr, int foreground)
@@ -76,6 +72,7 @@ void launch_job(job *job_ptr, int foreground)
 	pid_t pid ;
 	for ( p = iter->first_process ; p != NULL ; p = p->next_process )
 	{
+	    /* print_process(&p); */
 	    pid = fork() ;
 	    if ( pid == 0 )
 	    {
@@ -93,13 +90,11 @@ void launch_job(job *job_ptr, int foreground)
 	    }
 	    else
 	    {
+		if ( iter->pgid == 0 )
+		    iter->pgid = pid ;
+		tcsetpgrp(pid,STDOUT_FILENO);
 		p->pid = pid ;
-		if ( shell_is_interactive )
-		{
-		    if ( iter->pgid == 0 )
-			iter->pgid = pid ;
-		    setpgid(pid, iter->pgid);
-		}
+		setpgid(pid, iter->pgid);
 	    }
 	}
 	if ( foreground == 1 )
@@ -113,6 +108,9 @@ void launch_job(job *job_ptr, int foreground)
 void load_process(process **p, char *str, int foreground)
 {
     process *temp = malloc(sizeof(process));
+    temp->in = NULL ;
+    temp->out = NULL ;
+    temp->err = NULL ;
     temp->completed = 0 ;
     temp->stopped = 0 ;
     temp->next_process = NULL ;
@@ -509,29 +507,37 @@ void add_program(process **ptr, char *str, char *i, char *o, char *e)
 	(*ptr)->argv[j] = strdup(word);
 	++j ;
     }
-    (*ptr)->argv = realloc((*ptr)->argv,sizeof(char *)*j);
+    (*ptr)->argv = realloc((*ptr)->argv,sizeof(char *)*(j+1));
     (*ptr)->argv[j] = NULL ;
     if ( i != NULL )
-    (*ptr)->in = strdup(i);
+	(*ptr)->in = strdup(i);
+    else
+	(*ptr)->in = NULL;
     if ( o != NULL )
-    (*ptr)->out = strdup(o);
+	(*ptr)->out = strdup(o);
+    else
+	(*ptr)->out = NULL ;
     if ( e != NULL )
-    (*ptr)->err = strdup(e);
+	(*ptr)->err = strdup(e);
+    else
+	(*ptr)->err = NULL ;
 }
 
 void print_process(process **ptr)
 {
     int i = 0 ; 
-    while ( (*ptr)->argv[i] != NULL )
+    if ( *ptr != NULL )
     {
-	printf("%s\n",(*ptr)->argv[i]);
-	++i;
+	while ( (*ptr)->argv[i] != NULL )
+	{
+	    printf("%s\n",(*ptr)->argv[i]);
+	    ++i;
+	}
+	if ( (*ptr)->in != NULL )
+	    printf("%s\n",(*ptr)->in);
+	if ( (*ptr)->out != NULL )
+	    printf("%s\n",(*ptr)->out);
+	if ( (*ptr)->err != NULL )
+	    printf("%s\n",(*ptr)->err);
     }
-    if ( (*ptr)->in != NULL )
-	printf("%s\n",(*ptr)->in);
-    if ( (*ptr)->out != NULL )
-	printf("%s\n",(*ptr)->out);
-    if ( (*ptr)->err != NULL )
-	printf("%s\n",(*ptr)->err);
 }
-
