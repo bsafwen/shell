@@ -77,7 +77,7 @@ void launch_job(job *job_ptr, int foreground)
 	    {
 		if ( p->in != NULL )
 		{
-		    dup2(open(p->in, O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR), STDIN_FILENO);
+		    dup2(open(p->in, O_RDONLY), STDIN_FILENO);
 		}
 		if ( p->out != NULL )
 		{
