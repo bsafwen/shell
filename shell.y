@@ -8,8 +8,9 @@ time_t rawTime ;
 struct tm *tmp ;
 char   cwd[256];
 char   Time[10];
+extern char **environ ;
 %}
-%token REDIRECT PIPE PROGRAM BFG KJOB CD JOBS EOL IDENTIFIER EXIT RUN PRINT SETENV UNSETENV SET UNSET
+%token REDIRECT PIPE PROGRAM BFG KJOB CD JOBS EOL IDENTIFIER EXIT RUN PRINT SETENV UNSETENV SET UNSET STATUS SHOW
 %union {
     char *match;
     struct process *proc;
@@ -89,18 +90,34 @@ builtin	    :		    CD IDENTIFIER {  errno = 0 ;  if (	chdir($2) == -1  )  {
 			    if ( result != NULL )
 				printf("%s",result);
 			    printf("\n");
+			    last_command_status = 0 ;
 			    }
 	    |		    SET IDENTIFIER IDENTIFIER {
 			    set($2, $3);
+			    last_command_status = 0 ;
 			    }
 	    |		    UNSET IDENTIFIER {
 			    unset($2);
+			    last_command_status = 0 ;
 			    }
 	    |		    SETENV IDENTIFIER {
 			    setENV($2);
+			    last_command_status = 0 ;
 			    }
 	    |		    UNSETENV IDENTIFIER {
 			    unsetENV($2);
+			    last_command_status = 0 ;
+			    }
+	    |		    STATUS { printf("%d\n",last_command_status);
+			    last_command_status = 0 ;
+			    }
+	    |		    SHOW {
+			    char **temp = environ ;
+			    while ( *temp != NULL )
+			    {
+				printf("%s\n",*temp);
+				++temp ;
+			    }
 			    }
 	    ;
 redirect    :		    REDIRECT '(' IDENTIFIER ',' IDENTIFIER ',' IDENTIFIER ',' program ')' { 
@@ -211,11 +228,11 @@ int main(int argc, char *argv[])
       initialize_shell();
     yylloc.first_line = yylloc.last_line = 1 ;
     yylloc.first_column = yylloc.last_column = 0 ;
-    /* printf("> "); */
     prompt(cwd,Time,&rawTime,&tmp);
     while ( yyparse() != EXIT )
     {
     }
+    cleanup();
 }
 
 int yyerror(char *str)
@@ -227,6 +244,7 @@ int yyerror(char *str)
     printf("%s : unexpected token.",str);
     yyrestart(stdin);
     yylloc.last_column = 0 ;
-    printf("\n> ");
+    printf("\n");
+    prompt(cwd,Time,&rawTime,&tmp);
     last_command_status = 1 ;
 }

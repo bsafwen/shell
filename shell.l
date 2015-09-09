@@ -19,6 +19,8 @@ extern char command[256];
 "set"	    {strcat(command, yytext); yylloc.last_column += 3 ; return SET ;}
 "unset"	    {strcat(command, yytext); yylloc.last_column += 5 ; return UNSET ;}
 "setenv"    {strcat(command, yytext);yylloc.last_column += 6 ; return SETENV ;}
+"status"    {strcat(command, yytext);yylloc.last_column += 6 ; return STATUS ;}
+"show"    {strcat(command, yytext);yylloc.last_column += 4 ; return SHOW ;}
 "unsetenv"    {strcat(command, yytext);yylloc.last_column += 8 ; return UNSETENV ;}
 "(" |
 "," |

@@ -1,4 +1,5 @@
 #include "processing.h"
+#define DELIM "@"
 int		    shell_pid = 0 ;
 job		   *jobs = NULL ;
 int		    foreground = 1  ;
@@ -17,7 +18,7 @@ void initialize_shell(void)
 	shell_pid = getpid();
     setenv("MAXTIME","0",1);
     setenv("MAXJOBS","50",1);
-    setenv("PROMPT","%H%M%S%P",1);
+    setenv("PROMPT","49@231@34%H%M%P",1);
     new.sa_flags = SA_SIGINFO ;
     new.sa_sigaction = sig_chld ;
     shell_is_interactive = isatty(STDIN_FILENO);
@@ -552,8 +553,11 @@ void delete_list(process *p)
 	    ++i ;
 	}
 	free(p->argv);
-	p = p->next_process ;
+	free(p->in);
+	free(p->out);
+	free(p->err);
 	free(iter);
+	p = p->next_process ;
     }
 }
 
@@ -690,4 +694,24 @@ char *lookup(char *name)
 	temp = temp->next_variable ;
     }
     return temp != NULL ? temp->value : getenv(name) ;
+}
+
+void cleanup(void)
+{
+    job *temp = jobs ;
+    while ( temp != NULL )
+    {
+	kill(temp->pgid, SIGKILL);
+	jobs = jobs->next_job ;
+	free_job(temp);
+	temp = jobs ;
+    }
+    variable *tempV = list_variables ;
+    while ( temp != NULL  )
+    {
+	list_variables = list_variables->next_variable ;
+	free(tempV->name);
+	free(tempV->value);
+	tempV = list_variables ;
+    }
 }
