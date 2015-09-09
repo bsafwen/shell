@@ -1,12 +1,15 @@
-shell: parser.o analyser.o processing.o
-	gcc -g -O2 parser.o analyser.o processing.o -o shell -lfl
+CFLAGS=-g -O2 
+shell: parser.o analyser.o processing.o prompt.o
+	gcc $(CFLAGS) parser.o analyser.o processing.o prompt.o -o shell -lfl
 parser.o: shell.y 
 	bison -d shell.y
-	gcc -g -O2 -c shell.tab.c -o parser.o
+	gcc $(CFLAGS) -c shell.tab.c -o parser.o
 analyser.o: shell.l
 	flex shell.l
-	gcc -g -O2 -c lex.yy.c -o analyser.o
+	gcc $(CFLAGS) -c lex.yy.c -o analyser.o
 processing.o:processing.c processing.h
-	gcc -g -O2 -c processing.c -o processing.o
+	gcc $(CFLAGS) -c processing.c -o processing.o
+prompt.o: prompt.c prompt.h
+	gcc $(CFLAGS) -c prompt.c -o prompt.o
 clean: 
-	rm *.o
+	rm *.o shell.tab.c lex.yy.c shell.tab.h

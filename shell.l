@@ -15,6 +15,11 @@ extern char command[256];
 "jobs"	    {strcat(command,yytext);yylloc.last_column += 4 ; return JOBS ;}
 "killjob"   {strcat(command,yytext);yylloc.last_column += 7 ; return KJOB ;}
 "exit"	    {strcat(command,yytext);yylloc.last_column += 4 ;  return EXIT ;}
+"print"	    {strcat(command, yytext) ; yylloc.last_column += 5 ; return PRINT ;}
+"set"	    {strcat(command, yytext); yylloc.last_column += 3 ; return SET ;}
+"unset"	    {strcat(command, yytext); yylloc.last_column += 5 ; return UNSET ;}
+"setenv"    {strcat(command, yytext);yylloc.last_column += 6 ; return SETENV ;}
+"unsetenv"    {strcat(command, yytext);yylloc.last_column += 8 ; return UNSETENV ;}
 "(" |
 "," |
 ")"			{strcat(command,yytext);yylloc.last_column += 1 ; return yytext[0] ;}

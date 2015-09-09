@@ -1,9 +1,15 @@
 %{
 #include "processing.h"
+#include "prompt.h"
+extern shell_pid ;
 extern job		   *jobs ;
 extern int		    last_command_status ; 
+time_t rawTime ;
+struct tm *tmp ;
+char   cwd[256];
+char   Time[10];
 %}
-%token REDIRECT PIPE PROGRAM BFG KJOB CD JOBS EOL IDENTIFIER EXIT RUN 
+%token REDIRECT PIPE PROGRAM BFG KJOB CD JOBS EOL IDENTIFIER EXIT RUN PRINT SETENV UNSETENV SET UNSET
 %union {
     char *match;
     struct process *proc;
@@ -16,21 +22,21 @@ extern int		    last_command_status ;
 %%
 
 job	    :	
-	    |		    job command EOL  	{launch_job(jobs, 1);command[0]='\0'; update_bg_jobs() ; update_jobs() ; printf("> ");}
-	    |		    job builtin EOL {update_bg_jobs() ; update_jobs() ;command[0]='\0';printf("> ");}
+	|		    job command EOL  	{launch_job(jobs, 1);command[0]='\0'; update_bg_jobs() ; update_jobs() ; prompt(cwd,Time,&rawTime,&tmp);}
+	    |		    job builtin EOL {update_bg_jobs() ; update_jobs() ;command[0]='\0'; prompt(cwd,Time,&rawTime,&tmp);}
 	    |		    job EXIT EOL {return EXIT ;}
 	    ;
 command	    :		    redirect { load_job(&jobs, &$1, command, 1);
-			     }
-	    |		    pipe { printf("pipe found!\n");load_job(&jobs, &$1, command, 1);  }
+	    }
+	    |		    pipe { load_job(&jobs, &$1, command, 1);  }
 	    |		    program { process *new = malloc(sizeof(process));
 			    new->next_process = NULL ;
 			    add_program(&new, $1, NULL, NULL, NULL);
 			    load_job(&jobs, &new, command, 1);
 			    }
+	    
 	    ;
-builtin	    :		    CD IDENTIFIER {  errno = 0 ;  if (   chdir($2) == -1  )
-					     {
+builtin	    :		    CD IDENTIFIER {  errno = 0 ;  if (	chdir($2) == -1  )  {
 						last_command_status = errno ;
 						perror("chdir ");
 						return 1 ;
@@ -78,9 +84,27 @@ builtin	    :		    CD IDENTIFIER {  errno = 0 ;  if (   chdir($2) == -1  )
 			     load_job(&jobs, &new, command, 0);
 			    launch_job(jobs, 0);
 			     }
+	    |		    PRINT IDENTIFIER {
+			    char *result = lookup($2);
+			    if ( result != NULL )
+				printf("%s",result);
+			    printf("\n");
+			    }
+	    |		    SET IDENTIFIER IDENTIFIER {
+			    set($2, $3);
+			    }
+	    |		    UNSET IDENTIFIER {
+			    unset($2);
+			    }
+	    |		    SETENV IDENTIFIER {
+			    setENV($2);
+			    }
+	    |		    UNSETENV IDENTIFIER {
+			    unsetENV($2);
+			    }
 	    ;
 redirect    :		    REDIRECT '(' IDENTIFIER ',' IDENTIFIER ',' IDENTIFIER ',' program ')' { 
-			    process *new = malloc(sizeof(process));
+	    process *new = malloc(sizeof(process));
 			    new->next_process = NULL ;
 			    add_program(&new, $9, $3, $5, $7);
 			    $$ = new ;
@@ -117,13 +141,13 @@ redirect    :		    REDIRECT '(' IDENTIFIER ',' IDENTIFIER ',' IDENTIFIER ',' pro
 			    }
 	    ;
 program	    :		    program IDENTIFIER { char *str = $$ ;str=realloc(str, sizeof(char)*(2+strlen(str)+strlen($2)));
-						 strcat(str," ");
+	    strcat(str," ");
 						  strcat(str,$2);   
 						 $$ = str ; }
 	    |		    IDENTIFIER { $$ = strdup($1);}
 	    ;
 pipe	    :		    PIPE '(' program ',' program ')' { process *first = malloc(sizeof(process));
-			    process *second = malloc(sizeof(process));
+	 process *second = malloc(sizeof(process));
 			    first->next_process = second ;
 			    second->next_process = NULL ;
 			    add_program(&first, $3, NULL, NULL, NULL);
@@ -184,10 +208,11 @@ pipe	    :		    PIPE '(' program ',' program ')' { process *first = malloc(sizeo
 
 int main(int argc, char *argv[])
 {
-    initialize_shell();
+      initialize_shell();
     yylloc.first_line = yylloc.last_line = 1 ;
     yylloc.first_column = yylloc.last_column = 0 ;
-    printf("> ");
+    /* printf("> "); */
+    prompt(cwd,Time,&rawTime,&tmp);
     while ( yyparse() != EXIT )
     {
     }

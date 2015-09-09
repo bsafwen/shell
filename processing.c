@@ -1,15 +1,23 @@
 #include "processing.h"
+int		    shell_pid = 0 ;
 job		   *jobs = NULL ;
 int		    foreground = 1  ;
 char		   *dir ; 
 int		    last_command_status = 0 ;
-job *bg_jobs[MAX_JOBS] = {NULL};
-int bg_index = 0 ;
-int shell_is_interactive ;
-pid_t shell_pgid ;
-struct sigaction new ;
+job		   *bg_jobs[MAX_JOBS]={NULL} ;
+int		     bg_index = 0 ;
+int		    shell_is_interactive ;
+pid_t		    shell_pgid ;
+struct sigaction    new ;
+variable	   *list_variables = NULL ;
+
 void initialize_shell(void)
 {
+    if ( shell_pid == 0 )
+	shell_pid = getpid();
+    setenv("MAXTIME","0",1);
+    setenv("MAXJOBS","50",1);
+    setenv("PROMPT","%H%M%S%P",1);
     new.sa_flags = SA_SIGINFO ;
     new.sa_sigaction = sig_chld ;
     shell_is_interactive = isatty(STDIN_FILENO);
@@ -17,30 +25,26 @@ void initialize_shell(void)
     {
 	while ( tcgetpgrp(STDIN_FILENO) != (shell_pgid = getpgrp()) )
 	    kill(-shell_pgid, SIGTTIN);
-	//These signals should be handled by the child not by the shell so we just ignore them
 	signal(SIGINT, SIG_IGN);
 	signal(SIGQUIT, SIG_IGN);
 	signal(SIGTSTP, SIG_IGN);
 	signal(SIGTTIN, SIG_IGN);
 	signal(SIGTTOU, SIG_IGN);
 	signal(SIGCHLD, SIG_IGN);
-	setpgid(0, 0); // Putting the shell in its own process group 
-	tcsetpgrp(STDIN_FILENO, getpid()); // taking control of the terminal
-	// use setrlimit to control th resources allocated for your program
+	setpgid(0, 0); 
+	tcsetpgrp(STDIN_FILENO, getpid()); 
     }
 }
 
 void launch_process(process *process_ptr, pid_t *pgid, int foreground)
 {
-    	
+
     pid_t pid ;
     pid = getpid() ;
     process_ptr->pid = pid ;
     if ( *pgid == 0 )
     {
 	*pgid = pid ;
-	/* if ( foreground ) */
-	    /* tcsetpgrp(STDIN_FILENO, *pgid); */
     }
     setpgid(pid, *pgid);
     execvp(process_ptr->argv[0], process_ptr->argv);
@@ -68,7 +72,10 @@ void launch_job(job *job_ptr, int foreground)
 	int l,x ;
 	for ( l = 0 ; l < numberOfPipes ; ++l )
 	{
-	    pipe(pipes[l]);
+	    if ( pipe(pipes[l]) == -1 )
+	    {
+		perror("pipe ");
+	    }
 	}
 	for ( l = 0, p = iter->first_process ; p != NULL ; p = p->next_process, ++l )
 	{
@@ -228,7 +235,7 @@ void put_job_in_foreground(job *j, int cont)
 
     j->stopped = 0 ;
     j->foreground = 1 ;
-    tcsetpgrp(STDIN_FILENO, j->pgid); // put the job in the foreground
+    tcsetpgrp(STDIN_FILENO, j->pgid); 
     if ( cont == 1 )
     {
 	if (kill(-j->pgid, SIGCONT) == -1)
@@ -238,7 +245,6 @@ void put_job_in_foreground(job *j, int cont)
 	if (  bg_jobs[i] != NULL && bg_jobs[i]->foreground == 1 )
 	    bg_jobs[i] = NULL ;
     wait_for_job(j);
-    //put the shell back in the foreground
     tcsetpgrp(STDIN_FILENO, shell_pgid);
 }
 
@@ -605,4 +611,83 @@ void print_process(process **ptr)
 	if ( (*ptr)->err != NULL )
 	    printf("%s\n",(*ptr)->err);
     }
+}
+
+void set(char *name, char *value)
+{
+    variable *new = malloc(sizeof(variable));
+    new->name = strdup(name);
+    new->value = strdup(value);
+    new->next_variable = NULL ;
+    new->exported = 0 ;
+    if ( list_variables == NULL )
+	list_variables = new ;
+    else
+    {
+	new->next_variable = list_variables; 
+	list_variables = new ;
+    }
+}
+
+void unset(char *name)
+{
+    unsetenv(name);
+    if( list_variables != NULL )
+    {
+	variable *temp = list_variables ;
+	variable *previous = NULL ;
+	while ( temp != NULL && strcmp(temp->name, name) != 0 )
+	{
+	    previous = temp ;
+	    temp = temp->next_variable ;
+	}
+	if ( temp != NULL )
+	{
+	    variable *to_delete = NULL ;
+	    if ( temp == list_variables )
+	    {
+		to_delete = list_variables ;
+		list_variables = list_variables->next_variable ;
+		free(to_delete->name);
+		free(to_delete->value);
+		free(to_delete);
+	    }
+	    else
+	    {
+		to_delete = previous->next_variable ;
+		previous->next_variable = to_delete->next_variable; 
+		free(to_delete->name);
+		free(to_delete->value);
+		free(to_delete);
+	    }
+	}
+    }
+}
+
+void setENV(char *name)
+{
+    variable *temp = list_variables ;
+    while ( temp != NULL && strcmp(temp->name, name) != 0 )
+    {
+	temp = temp->next_variable ;
+    }
+    if ( temp != NULL )
+    {
+	setenv(temp->name, temp->value, 1);
+    }
+}
+
+void unsetENV(char *name)
+{
+    unsetenv(name);
+}
+
+char *lookup(char *name)
+{
+    variable *temp = list_variables ;
+    while ( temp != NULL && strcmp(temp->name, name) != 0 )
+    {
+	temp = temp->next_variable ;
+    }
+    return temp != NULL ? temp->value : getenv(name) ;
 }

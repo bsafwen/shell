@@ -30,6 +30,19 @@ typedef struct job
     char	    foreground ;
 } job ;
 
+typedef struct variable
+{
+    char *name ;
+    char *value ;
+    char exported ;
+    struct variable *next_variable ;
+} variable ;
+
+char *lookup(char *name);
+void set(char *name, char *value);
+void unset(char *name);
+void setENV(char *name);
+void unsetENV(char *name);
 void update_jobs(void);
 void delete_list(process *p);
 void free_job(job *j);
