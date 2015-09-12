@@ -1,9 +1,11 @@
 #include "prompt.h"
 extern char *lookup(char *name);
+extern char prompt_length ;
 #define DELIM "@%"
 
 char prompt(char cwd[256],char Time[10], time_t *rawTime, struct tm **timeInfo)
 {
+    prompt_length = 0 ;
     int n ;
     char color_format[32]="\x1B[38;2;";
     char time_format[32]="il est ";
@@ -45,7 +47,7 @@ char prompt(char cwd[256],char Time[10], time_t *rawTime, struct tm **timeInfo)
 	}
 	strcat(color_format,word);
 	strcat(color_format,"m");
-	printf(color_format);
+	printf("%s",color_format);
 	while ( (word = strtok(NULL, DELIM)) != NULL )
 	{
 	    if ( strcmp(word, "U") == 0 )
@@ -59,7 +61,8 @@ char prompt(char cwd[256],char Time[10], time_t *rawTime, struct tm **timeInfo)
 	    else if ( strcmp(word, "P") == 0 )
 	    {
 		display_directory = 1 ;
-		getcwd(cwd,256);
+		if( (getcwd(cwd,256)==NULL))
+		    ;
 	    }
 	    else if ( strcmp(word, "H") == 0 )
 	    {
@@ -79,23 +82,30 @@ char prompt(char cwd[256],char Time[10], time_t *rawTime, struct tm **timeInfo)
 	}
 	if ( display_user == 1 )
 	{
-	    printf("%s:",getlogin());
+	    result = getlogin();
+	    printf("%s:",result);
+	    prompt_length += 1+strlen(result);
 	}
 	if ( display_host == 1 )
 	{
 	    char host[16] ;
 	    gethostname(host, 16);
 	    printf("@%s",host);
+	    prompt_length += 1+strlen(host);
 	}
 	if ( display_time == 1 )
 	{
 	    time(rawTime);
 	    *timeInfo = localtime(rawTime);
 	    strftime(Time, 32, time_format,*timeInfo);
-	    printf(Time);
+	    printf("%s",Time);
+	    prompt_length += strlen(Time);
 	}
 	if ( display_directory == 1 )
+	{
 	    printf(".%s",cwd);
+	    prompt_length += strlen(cwd) + 1 ;
+	}
 	printf("$ ");
 	free(PROMPT);
     }

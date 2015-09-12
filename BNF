@@ -1,9 +1,21 @@
-<job>	     :== <run> | <builtin> | <redirect> | <pipe> 
-<run>	     :=  run(<program>)
+<job>	     :== <builtin> | <external_program>
+<external_program> :== <redirect> | <pipe> | <program> | <run>
 <builtin>    :== jobs | killjob <digit> <digit> | fg <digit> | bg <digit>
-	              | cd <argument> | exit |  status
-<redirect>   :== <program> | redirect(<identifier>,<identifier>,<identifier>, <program>)
-<pipe>	     :== pipe(<redirect>,<redirect>) | pipe(<pipe>,<pipe>)
+	         | cd     | cd <argument> | exit |  status | set | setenv | unsetenv | unset | show
+<run>	     :==  run(<program>)
+<redirect>   :== redirect(<identifier>,<identifier>,<identifier>, <program>)
+		 | redirect(<identifier>, <program>)
+		 | redirect(<identifier>, <identifier>, <program>)
+		 | redirect(, <identifier>, <identifier>, <program>)
+		 | redirect(, , <identifier>, <program>)
+		 | redirect( <identifier>, , , <program>)
+<pipe>	     :== pipe(<program>, <program>)
+		 | pipe(<pipe>, <program>)
+		 | pipe(<program>, <pipe>)
+		 | pipe(<redirect>, <program>)
+		 | pipe(<program>, <redirect>)
+		 | pipe(<redirect>,<redirect>) 
+		 | pipe(<pipe>,<pipe>)
 <program>    :== <identifier> | <identifier> -<option> | <identifier> <argument>
 <argument>   :== <argument> <letter> | <argument> <digit> |<empty> 
 <option>     :== <option> <letter> | <option> <digit> | <empty>

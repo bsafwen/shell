@@ -1,14 +1,15 @@
 %{
 #include "shell.tab.h"
 extern char command[256];
+extern char prompt_length ;
 %}
 %%
 
 [ \t]	    {strcat(command,yytext);yylloc.last_column++;
 	     yylloc.first_line = yylloc.last_line;
 	     yylloc.first_column = yylloc.last_column;}
-\n  {++yylloc.last_line ; yylloc.last_column = 0 ;return EOL;}
-"fg"	  |
+\n  {++yylloc.last_line  ;return EOL;}
+"fg"	    |
 "bg"	    {strcat(command,yytext);yylloc.last_column += 2 ;yylval.match = strdup(yytext); return BFG ;}
 "cd"	    {strcat(command,yytext); yylloc.last_column += 2 ; return CD ;}
 "run"	    {strcat(command, yytext); yylloc.last_column += 2 ; return RUN ; }

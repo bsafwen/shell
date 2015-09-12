@@ -11,7 +11,7 @@ int		    shell_is_interactive ;
 pid_t		    shell_pgid ;
 struct sigaction    new ;
 variable	   *list_variables = NULL ;
-
+extern char		  **environ ;
 void initialize_shell(void)
 {
     if ( shell_pid == 0 )
@@ -36,10 +36,8 @@ void initialize_shell(void)
 	tcsetpgrp(STDIN_FILENO, getpid()); 
     }
 }
-
-void launch_process(process *process_ptr, pid_t *pgid, int foreground)
+void launch_process(process *process_ptr, pid_t *pgid, const char foreground)
 {
-
     pid_t pid ;
     pid = getpid() ;
     process_ptr->pid = pid ;
@@ -48,12 +46,11 @@ void launch_process(process *process_ptr, pid_t *pgid, int foreground)
 	*pgid = pid ;
     }
     setpgid(pid, *pgid);
-    execvp(process_ptr->argv[0], process_ptr->argv);
-
+    if( execvp(process_ptr->argv[0], process_ptr->argv) == -1 )
+	printf("command not found.\n");
     exit(1);
 }
-
-void launch_job(job *job_ptr, int foreground)
+void launch_job(job *job_ptr) 
 {
     if ( job_ptr != NULL )
     {
@@ -112,7 +109,7 @@ void launch_job(job *job_ptr, int foreground)
 		}
 		else if ( l == 0 )
 		{
-		    if ( foreground == 1 )
+		    if ( iter->foreground == 1 )
 			tcsetpgrp(getpid(), STDIN_FILENO);
 		    dup2(pipes[0][1], STDOUT_FILENO);
 		    for ( x = 0 ; x < numberOfPipes ; ++x )
@@ -146,7 +143,7 @@ void launch_job(job *job_ptr, int foreground)
 		signal(SIGTTIN, SIG_DFL);
 		signal(SIGTTOU, SIG_DFL);
 		signal(SIGCHLD, SIG_DFL);
-		launch_process(p, &iter->pgid, foreground);
+		launch_process(p, &iter->pgid, iter->foreground);
 	    }
 	    else
 	    {
@@ -164,51 +161,14 @@ void launch_job(job *job_ptr, int foreground)
 	    for ( k = 0 ; k < 2 ; ++k )
 		close(pipes[l][k]);
 	}
-	if ( foreground == 1 )
+	if ( iter->foreground == 1 )
 	    put_job_in_foreground(iter, 0);
 	else
 	    put_job_in_background(iter, 0);
     }
     signal(SIGCHLD, SIG_IGN);
 }
-
-void load_process(process **p, char *str, int foreground)
-{
-    process *temp = malloc(sizeof(process));
-    temp->in = NULL ;
-    temp->out = NULL ;
-    temp->err = NULL ;
-    temp->completed = 0 ;
-    temp->stopped = 0 ;
-    temp->next_process = NULL ;
-    char *word = strtok(str, DELIMITERS);
-    int   i = 1 ;
-    if ( foreground == 0 )
-	word = strtok(NULL, DELIMITERS);
-    temp->argv = malloc(sizeof(char *)) ;
-    temp->argv[0] = strdup(word);
-    while ( (word = strtok(NULL, DELIMITERS)) != NULL )
-    {
-	if ((temp->argv = realloc(temp->argv, sizeof(char *) * (i+1))) == NULL )
-	    perror("realloc ");
-	temp->argv[i] = strdup(word);
-	++i ;
-    }
-    if ( (temp->argv = realloc(temp->argv, sizeof(char *) * (i+1))) == NULL )
-	perror("realloc ");
-    temp->argv[i] = NULL ;
-    if ( *p == NULL )
-	*p = temp ;
-    else
-    {
-	process *iter = *p ;
-	while ( iter->next_process != NULL )
-	    iter = iter->next_process ;
-	iter->next_process = temp ;
-    }
-}
-
-void load_job(job **j,process **p, char *str, int foreground )
+void load_job(job **j,process *const *p, const char *str, const char foreground )
 {
     job *temp = malloc(sizeof(job));
     temp->command = strdup(str);
@@ -229,11 +189,9 @@ void load_job(job **j,process **p, char *str, int foreground )
 	iter->next_job = temp ;
     }
 }
-
-void put_job_in_foreground(job *j, int cont)
+void put_job_in_foreground(job *j, const char cont)
 {
     int i ;
-
     j->stopped = 0 ;
     j->foreground = 1 ;
     tcsetpgrp(STDIN_FILENO, j->pgid); 
@@ -248,8 +206,7 @@ void put_job_in_foreground(job *j, int cont)
     wait_for_job(j);
     tcsetpgrp(STDIN_FILENO, shell_pgid);
 }
-
-void put_job_in_background(job *j, int cont)
+void put_job_in_background(job *j, const char cont)
 {
     j->foreground = 0 ;
     if ( cont == 1 )
@@ -272,13 +229,10 @@ void put_job_in_background(job *j, int cont)
 	    bg_jobs[i] = j ;
 	else
 	    printf("max jobs reached!\n");
-
     }
 }
-
 void wait_for_job(job *j)
 {
-
     pid_t pid ;
     int status ;
     do
@@ -361,24 +315,21 @@ void wait_for_job(job *j)
     }
     while ( !job_is_stopped(j) && !job_is_completed(j));
 }
-
-void fg(int i)
+void fg(const int i)
 {
     if ( bg_jobs[i-1] != NULL && bg_jobs[i-1]->foreground == 0 )
 	put_job_in_foreground(bg_jobs[i-1], 1);
     else
 	printf("jobs error : invalid number.\n");
 }
-
-void bg(int i)
+void bg(const int i)
 {
     if ( bg_jobs[i-1] != NULL )
 	put_job_in_background(bg_jobs[i-1], 1);
     else
 	printf("jobs error : invalid number.\n");
 }
-
-process * find_process(int pid)
+process * find_process(const int pid)
 {
     job *tempJ = jobs ; 
     process *temp = NULL ; ;
@@ -395,8 +346,7 @@ process * find_process(int pid)
     }
     return temp; 
 }
-
-int job_is_stopped(job *j)
+int job_is_stopped(const job *j)
 {
     process *p = j->first_process ;
     while ( p != NULL )
@@ -407,8 +357,7 @@ int job_is_stopped(job *j)
     }
     return 1 ;
 }
-
-int job_is_completed(job *j)
+int job_is_completed(const job *j)
 {
     process *p = j->first_process ;
     while ( p != NULL )
@@ -419,7 +368,6 @@ int job_is_completed(job *j)
     }
     return 1 ;
 }
-
 void sig_chld(int n, siginfo_t *info , void *foo)
 {
     process *p = find_process(info->si_pid) ;
@@ -439,7 +387,6 @@ void sig_chld(int n, siginfo_t *info , void *foo)
 	}
     }
 }
-
 void print_bg_jobs(void)
 {
     int i ;
@@ -449,34 +396,6 @@ void print_bg_jobs(void)
 	    printf("%d) %s\n",i+1, bg_jobs[i]->command);
     }
 }
-
-void sig_cont(int n, siginfo_t *info, void *foo)
-{
-    process *p = find_process(getpid());
-    if ( p == NULL )
-	;
-    else
-    {
-	p->stopped = p->completed = 0 ;
-    }
-}
-
-void print_job(job *j)
-{
-    job *iter = j ;
-    process *p ;
-    while ( iter != NULL )
-    {
-	p = iter->first_process ;
-	while ( p != NULL )
-	{
-	    print_process(&p);
-	    p = p->next_process ;
-	}
-	iter = iter->next_job ;
-    }
-}
-
 void update_bg_jobs(void)
 {
     int i ;
@@ -493,17 +412,15 @@ void update_bg_jobs(void)
 	}
     }
 }
-
-void kill_job(int signal ,int i)
+void kill_job(const char signal ,const int i)
 {
-    if (kill(-bg_jobs[i-1]->pgid,signal)==-1)
+    if (bg_jobs[i-1] != NULL && kill(-bg_jobs[i-1]->pgid,signal)==-1)
     {
 	last_command_status = errno ;
 	perror("kill ");
     }
     last_command_status = 0 ;
 }
-
 void update_jobs(void)
 {
     if ( jobs != NULL && job_is_completed(jobs) )
@@ -524,21 +441,19 @@ void update_jobs(void)
 	    if ( iter->next_job != NULL )
 	    {
 		job *delete_me = iter->next_job ;
-		iter->next_job = (iter->next_job)->next_job ;
+		iter->next_job = delete_me->next_job ;
 		free_job(delete_me);
 	    }
 	    iter = iter->next_job ;
 	}
     }
 }
-
 void free_job(job *j)
 {
     free(j->command);
     delete_list(j->first_process);
     free(j);
 }
-
 void delete_list(process *p)
 {
     process *iter = p ;
@@ -556,12 +471,11 @@ void delete_list(process *p)
 	free(p->in);
 	free(p->out);
 	free(p->err);
-	free(iter);
 	p = p->next_process ;
+	free(iter);
     }
 }
-
-void add_program(process **ptr, char *str, char *i, char *o, char *e)
+void add_program(process **ptr,char *str,const char *i,const char *o,const char *e)
 {
     (*ptr)->completed = 0 ;
     (*ptr)->stopped = 0 ;
@@ -597,27 +511,7 @@ void add_program(process **ptr, char *str, char *i, char *o, char *e)
     else
 	(*ptr)->err = NULL ;
 }
-
-void print_process(process **ptr)
-{
-    int i = 0 ; 
-    if ( *ptr != NULL )
-    {
-	while ( (*ptr)->argv[i] != NULL )
-	{
-	    printf("%s\n",(*ptr)->argv[i]);
-	    ++i;
-	}
-	if ( (*ptr)->in != NULL )
-	    printf("%s\n",(*ptr)->in);
-	if ( (*ptr)->out != NULL )
-	    printf("%s\n",(*ptr)->out);
-	if ( (*ptr)->err != NULL )
-	    printf("%s\n",(*ptr)->err);
-    }
-}
-
-void set(char *name, char *value)
+void set(const char *name, const char *value)
 {
     variable *new = malloc(sizeof(variable));
     new->name = strdup(name);
@@ -632,8 +526,7 @@ void set(char *name, char *value)
 	list_variables = new ;
     }
 }
-
-void unset(char *name)
+void unset(const char *name)
 {
     unsetenv(name);
     if( list_variables != NULL )
@@ -667,8 +560,7 @@ void unset(char *name)
 	}
     }
 }
-
-void setENV(char *name)
+void setENV(const char *name)
 {
     variable *temp = list_variables ;
     while ( temp != NULL && strcmp(temp->name, name) != 0 )
@@ -680,13 +572,11 @@ void setENV(char *name)
 	setenv(temp->name, temp->value, 1);
     }
 }
-
-void unsetENV(char *name)
+void unsetENV(const char *name)
 {
     unsetenv(name);
 }
-
-char *lookup(char *name)
+char *lookup(const char *name)
 {
     variable *temp = list_variables ;
     while ( temp != NULL && strcmp(temp->name, name) != 0 )
@@ -695,7 +585,6 @@ char *lookup(char *name)
     }
     return temp != NULL ? temp->value : getenv(name) ;
 }
-
 void cleanup(void)
 {
     job *temp = jobs ;
@@ -707,11 +596,120 @@ void cleanup(void)
 	temp = jobs ;
     }
     variable *tempV = list_variables ;
-    while ( temp != NULL  )
+    while ( tempV != NULL  )
     {
 	list_variables = list_variables->next_variable ;
 	free(tempV->name);
 	free(tempV->value);
+	free(tempV);
 	tempV = list_variables ;
+    }
+}
+int do_builtin(type_args *command)
+{
+    switch(command->type)
+    {
+	case CD:
+	    if ( command->args[0] != NULL )
+	    {
+		errno = 0 ; 
+		if (chdir(command->args[0]) == -1)  {
+		    last_command_status = errno ;
+		    perror("chdir ");
+		    break;
+		}
+		last_command_status = 0 ;
+	    }
+	    else
+	    {
+		char *home_dir = getenv("HOME");
+		if ( home_dir == NULL )
+		{
+		    last_command_status = 1 ;
+		    printf("Home directory not defined.\n");
+		    break;
+		}
+		if ( chdir(home_dir) == -1 )
+		    perror("chdir :");
+	    }
+	    break ;
+	case BFG:
+	    {
+		unsigned n = atoi(command->args[1]);
+		if ( n == 0 )
+		{
+		    yyerror("invalid integer");
+		    last_command_status = 1 ;
+		    break;
+		}
+		else
+		{
+		    if ( strcmp(command->args[0], "bg") == 0 )
+			bg(n);
+		    else if ( strcmp(command->args[0], "fg") == 0 )
+			fg(n);
+		    last_command_status = 0 ;
+		}
+	    }
+	    break ;
+	case KJOB:
+	    {
+		unsigned signal, id ;
+		signal = atoi(command->args[0]);
+		if ( signal == 0 )
+		    yyerror("invalid integer");
+		else
+		{
+		    id = atoi(command->args[1]);
+		    if ( id == 0 )
+			yyerror("invalid integer");
+		    else
+			kill_job(signal, id);
+		}
+	    }
+	    break ;
+	case JOBS:
+	    print_bg_jobs() ;
+	    last_command_status = 0 ;
+	    break;
+	case PRINT:
+	    {
+		char *result = lookup(command->args[0]);
+		if ( result != NULL )
+		    printf("%s",result);
+		printf("\n");
+		last_command_status = 0 ;
+	    }
+	    break ;
+	case SET:
+	    set(command->args[0], command->args[1]);
+	    last_command_status = 0 ;
+	    break ;
+	case UNSET:
+	    unset(command->args[0]);
+	    last_command_status = 0 ;
+	    break ;
+	case SETENV:
+	    setENV(command->args[0]);
+	    last_command_status = 0 ;
+	    break ;
+	case UNSETENV:
+	    unsetENV(command->args[0]);
+	    last_command_status = 0 ;
+	    break;
+	case STATUS:
+	    printf("%d\n",last_command_status);
+	    last_command_status = 0 ;
+	    break ;
+	case SHOW:
+	    {
+		char **temp = environ ;
+		while ( *temp != NULL )
+		{
+		    printf("%s\n",*temp);
+		    ++temp ;
+		}
+	    }
+	    break ;
     }
 }
