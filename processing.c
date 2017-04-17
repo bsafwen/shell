@@ -704,7 +704,7 @@ int do_builtin(type_args *command)
 	case SHOW:
 	    {
 		char **temp = environ ;
-		while ( *temp != NULL )
+		while ( temp &&  *temp != NULL )
 		{
 		    printf("%s\n",*temp);
 		    ++temp ;

@@ -35,7 +35,7 @@ job	    :
 			    yylloc.last_column = prompt_length ; prompt(cwd,Time,&rawTime,&tmp);}
 	    |		    job builtin EOL {do_builtin($2);
 			    i = 0 ;
-			    while ( $2->args[i] != NULL )
+			    while ( $2->args && $2->args[i] != NULL )
 				free($2->args[i++]);
 			    free($2->args);
 			    free($2);
@@ -144,6 +144,7 @@ builtin	    :		    CD IDENTIFIER { type_args *new = malloc(sizeof(type_args));
 			    }
 	    |		    SHOW { type_args *new = malloc(sizeof(type_args)) ; 
 			    new->type = SHOW ;
+                            new->args=NULL;
 			    $$ = new ;
 			    }
 	    ;

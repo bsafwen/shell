@@ -1,4 +1,4 @@
-CFLAGS=-g -O2 -Werror -Wfatal-errors 
+CFLAGS=-O2 -Werror -Wfatal-errors 
 OBJECTS=parser.o analyser.o processing.o prompt.o
 LINK=-lfl
 shell: $(OBJECTS)
