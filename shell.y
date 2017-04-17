@@ -7,6 +7,7 @@ extern int		    yyrestart(FILE *file);
 extern int		    shell_pid ;
 extern job		   *jobs ;
 extern int		    last_command_status ; 
+extern int		    shell_is_interactive ; 
 time_t			    rawTime ;
 struct tm		   *tmp ;
 char			    cwd[256];
@@ -14,7 +15,7 @@ char			    Time[10];
 char			    prompt_length = 0 ;
 int			    i = 0 ;
 %}
-%token REDIRECT PIPE PROGRAM BFG KJOB CD JOBS EOL IDENTIFIER EXIT RUN PRINT SETENV UNSETENV SET UNSET STATUS SHOW 
+%token REDIRECT PIPE PROGRAM BFG KJOB CD JOBS EOL IDENTIFIER EXIT RUN PRINT SETENV UNSETENV SET UNSET STATUS SHOW E_O_F
 %union {
     char *match;
     struct process *proc;
@@ -29,10 +30,11 @@ int			    i = 0 ;
 %%
 
 job	    :	
+	    |		    job E_O_F { exit(0);}
 	    |		    job EOL { update_bg_jobs() ; update_jobs() ;command[0]='\0'; 
 			    yylloc.last_column = prompt_length ;prompt(cwd,Time,&rawTime,&tmp);}
 	    |		    job command EOL  	{launch_job(jobs);command[0]='\0'; update_bg_jobs() ;                                           update_jobs() ; 
-			    yylloc.last_column = prompt_length ; prompt(cwd,Time,&rawTime,&tmp);}
+			    yylloc.last_column = prompt_length ;if (shell_is_interactive)  prompt(cwd,Time,&rawTime,&tmp);}
 	    |		    job builtin EOL {do_builtin($2);
 			    i = 0 ;
 			    while ( $2->args && $2->args[i] != NULL )
@@ -40,7 +42,7 @@ job	    :
 			    free($2->args);
 			    free($2);
 			    update_bg_jobs() ; update_jobs() ;command[0]='\0'; 
-			    yylloc.last_column = prompt_length ;prompt(cwd,Time,&rawTime,&tmp);}
+			    yylloc.last_column = prompt_length ;if( shell_is_interactive) prompt(cwd,Time,&rawTime,&tmp);}
 	    |		    job EXIT EOL {return EXIT ;}
 	    ;
 command	    :		    redirect { load_job(&jobs, &$1, command, 1);}
@@ -282,7 +284,7 @@ int main(int argc, char *argv[])
 {
       initialize_shell();
     yylloc.first_line = yylloc.last_line = 1 ;
-    prompt(cwd,Time,&rawTime,&tmp);
+    if ( shell_is_interactive)  prompt(cwd,Time,&rawTime,&tmp);
     yylloc.first_column = yylloc.last_column = prompt_length ;
     while ( yyparse() != EXIT )
     {

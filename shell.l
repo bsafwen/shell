@@ -29,5 +29,6 @@ extern char prompt_length ;
 "pipe"			{strcat(command,yytext);yylloc.last_column += 4 ; return PIPE;}
 "redirect"		{strcat(command,yytext);yylloc.last_column += 8 ; return REDIRECT ; }
 [-\.a-zA-Z0-9_/{}@\;]+	{strcat(command,yytext);yylloc.last_column += strlen(yytext) ; yylval.match = strdup(yytext );return IDENTIFIER ; }
+<<EOF>>     return E_O_F;
 .	    {;}
 %%
